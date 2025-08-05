@@ -1,7 +1,7 @@
 import React, { useRef, useCallback } from "react";
 import { useDrop } from "react-dnd";
 import { useAppStore } from "../../store/useAppStore";
-import { CanvasComponent } from "./CanvasComponent.tsx";
+import { CanvasComponent } from "./CanvasComponent";
 import { DropResult } from "../../types";
 
 export const Canvas: React.FC = () => {
@@ -103,6 +103,7 @@ export const Canvas: React.FC = () => {
               drop(node);
             }}
             onClick={handleCanvasClick}
+            data-canvas="true"
             className={`
               relative bg-white shadow-lg transition-all duration-200
               ${isOver && canDrop ? "ring-4 ring-blue-300 ring-opacity-50" : ""}
@@ -139,6 +140,7 @@ export const Canvas: React.FC = () => {
                 component={component}
                 isSelected={selectedComponentId === component.id}
                 zoom={zoom}
+                onSelect={selectComponent}
               />
             ))}
 

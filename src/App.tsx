@@ -5,7 +5,8 @@ import { useAppStore } from "./store/useAppStore";
 import { Header } from "./components/Header/Header";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { Canvas } from "./components/Canvas/Canvas";
-import { PropertiesPanel } from "./components/PropertiesPanel/PropertiesPanel";
+import { EnhancedPropertiesPanel } from "./components/PropertiesPanel/EnhancedPropertiesPanel";
+import { LayerPanel } from "./components/LayerPanel/LayerPanel";
 import { CodePanel } from "./components/CodePanel/CodePanel";
 import { PreviewPanel } from "./components/PreviewPanel/PreviewPanel";
 import { AIPanel } from "./components/AIPanel/AIPanel";
@@ -60,18 +61,25 @@ function App() {
 
           <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
 
-          {/* Right Panel - Properties & Code */}
+          {/* Right Panel - Layers, Properties & Code */}
           <Panel defaultSize={30} minSize={25} maxSize={40}>
             <PanelGroup direction="vertical">
+              {/* Layer Panel */}
+              <Panel defaultSize={25} minSize={15}>
+                <LayerPanel />
+              </Panel>
+
+              <PanelResizeHandle className="h-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
+
               {/* Properties Panel */}
-              <Panel defaultSize={50} minSize={30}>
-                <PropertiesPanel />
+              <Panel defaultSize={40} minSize={25}>
+                <EnhancedPropertiesPanel />
               </Panel>
 
               <PanelResizeHandle className="h-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
 
               {/* Code Panel */}
-              <Panel defaultSize={50} minSize={30}>
+              <Panel defaultSize={35} minSize={20}>
                 <CodePanel />
               </Panel>
             </PanelGroup>

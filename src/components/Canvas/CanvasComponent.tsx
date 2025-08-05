@@ -1,263 +1,258 @@
-import React, { useState, useRef, useCallback } from "react";
-import { useDrag } from "react-dnd";
-import { Trash2, Copy } from "lucide-react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { Component } from "../../types";
-import { getComponentById } from "../ComponentLibrary/index";
+import { getComponentById } from "../ComponentLibrary";
 
 interface CanvasComponentProps {
   component: Component;
-  isSelected: boolean;
   zoom: number;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
 }
 
 export const CanvasComponent: React.FC<CanvasComponentProps> = ({
   component,
-  isSelected,
   zoom,
+  isSelected,
+  onSelect,
 }) => {
-  const componentRef = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const { moveComponent, resizeComponent } = useAppStore();
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<string>("");
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const componentRef = useRef<HTMLDivElement>(null);
 
-  const {
-    selectComponent,
-    removeComponent,
-    moveComponent,
-    resizeComponent,
-    addExistingComponent,
-  } = useAppStore();
+  // Handle mouse down for dragging
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
 
-  const [{ isDragging }, drag] = useDrag({
-    type: "existing-component",
-    item: { type: "existing-component", item: component },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
+      onSelect(component.id);
 
-  const componentDef = getComponentById(component.type);
-  if (!componentDef) return null;
+      // Get the canvas container to calculate proper offset
+      const canvasContainer = e.currentTarget.closest(
+        '[data-canvas="true"]'
+      ) as HTMLElement;
+      if (!canvasContainer) return;
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    selectComponent(component.id);
-  };
+      const canvasRect = canvasContainer.getBoundingClientRect();
+      const currentPosition = component.position || { x: 0, y: 0 };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    removeComponent(component.id);
-  };
+      // Calculate the offset from the mouse to the component's top-left corner
+      const offsetX = e.clientX - canvasRect.left - currentPosition.x * zoom;
+      const offsetY = e.clientY - canvasRect.top - currentPosition.y * zoom;
 
-  const handleDuplicate = (e: React.MouseEvent) => {
-    e.stopPropagation();
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      setDragOffset({ x: offsetX, y: offsetY });
+    },
+    [component.id, component.position, onSelect, zoom]
+  );
 
-    // Create a duplicate component
-    const duplicateComponent: Component = {
-      ...component,
-      id: Date.now().toString(),
-      position: {
-        x: (component.position?.x || 0) + 20,
-        y: (component.position?.y || 0) + 20,
-      },
-    };
+  // Handle mouse move for dragging
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging || isResizing) return;
 
-    // Add duplicate component
-    addExistingComponent(duplicateComponent);
-    selectComponent(duplicateComponent.id);
-  };
+      e.preventDefault();
 
-  // Resize handle event handlers
+      // Get the canvas container
+      const canvasContainer = document.querySelector(
+        '[data-canvas="true"]'
+      ) as HTMLElement;
+      if (!canvasContainer) return;
+
+      const canvasRect = canvasContainer.getBoundingClientRect();
+
+      // Calculate new position accounting for zoom and offset
+      const newX = (e.clientX - canvasRect.left - dragOffset.x) / zoom;
+      const newY = (e.clientY - canvasRect.top - dragOffset.y) / zoom;
+
+      moveComponent(component.id, { x: newX, y: newY });
+    },
+    [component.id, moveComponent, zoom, isDragging, isResizing, dragOffset]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    setIsResizing(false);
+    setResizeDirection("");
+  }, []);
+
+  // Handle resize start
   const handleResizeStart = useCallback(
     (e: React.MouseEvent, direction: string) => {
       e.stopPropagation();
+      e.preventDefault();
+
+      setIsResizing(true);
+      setResizeDirection(direction);
       setDragStart({ x: e.clientX, y: e.clientY });
+    },
+    []
+  );
 
-      const handleResizeMove = (e: MouseEvent) => {
-        if (!component.size) return;
+  // Handle resize move
+  const handleResizeMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing || !resizeDirection) return;
 
-        const deltaX = e.clientX - dragStart.x;
-        const deltaY = e.clientY - dragStart.y;
+      e.preventDefault();
 
-        let newSize = { ...component.size };
+      const deltaX = (e.clientX - dragStart.x) / zoom;
+      const deltaY = (e.clientY - dragStart.y) / zoom;
 
-        if (direction.includes("right")) {
-          newSize.width = Math.max(50, component.size.width + deltaX / zoom);
-        }
-        if (direction.includes("left")) {
-          newSize.width = Math.max(50, component.size.width - deltaX / zoom);
-          if (component.position) {
-            moveComponent(component.id, {
-              x: component.position.x + deltaX / zoom,
-              y: component.position.y,
-            });
-          }
-        }
-        if (direction.includes("bottom")) {
-          newSize.height = Math.max(30, component.size.height + deltaY / zoom);
-        }
-        if (direction.includes("top")) {
-          newSize.height = Math.max(30, component.size.height - deltaY / zoom);
-          if (component.position) {
-            moveComponent(component.id, {
-              x: component.position.x,
-              y: component.position.y + deltaY / zoom,
-            });
-          }
-        }
+      const currentPosition = component.position || { x: 0, y: 0 };
+      const currentSize = component.size || { width: 100, height: 100 };
 
-        resizeComponent(component.id, newSize);
-        setDragStart({ x: e.clientX, y: e.clientY });
-      };
+      let newWidth = currentSize.width;
+      let newHeight = currentSize.height;
+      let newX = currentPosition.x;
+      let newY = currentPosition.y;
 
-      const handleResizeEnd = () => {
-        document.removeEventListener("mousemove", handleResizeMove);
-        document.removeEventListener("mouseup", handleResizeEnd);
-      };
+      if (resizeDirection.includes("right")) {
+        newWidth = Math.max(20, currentSize.width + deltaX);
+      }
+      if (resizeDirection.includes("left")) {
+        newWidth = Math.max(20, currentSize.width - deltaX);
+        newX = currentPosition.x + deltaX;
+      }
+      if (resizeDirection.includes("bottom")) {
+        newHeight = Math.max(20, currentSize.height + deltaY);
+      }
+      if (resizeDirection.includes("top")) {
+        newHeight = Math.max(20, currentSize.height - deltaY);
+        newY = currentPosition.y + deltaY;
+      }
 
-      document.addEventListener("mousemove", handleResizeMove);
-      document.addEventListener("mouseup", handleResizeEnd);
+      moveComponent(component.id, { x: newX, y: newY });
+      resizeComponent(component.id, { width: newWidth, height: newHeight });
+
+      setDragStart({ x: e.clientX, y: e.clientY });
     },
     [
-      component.size,
-      component.position,
+      isResizing,
+      resizeDirection,
       component.id,
-      resizeComponent,
+      component.position,
+      component.size,
       moveComponent,
+      resizeComponent,
       zoom,
-      dragStart,
+      dragStart.x,
+      dragStart.y,
     ]
   );
 
-  const PreviewComponent = componentDef.previewComponent;
+  // Event listeners
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+    if (isResizing) {
+      document.addEventListener("mousemove", handleResizeMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
 
-  const combinedStyles: React.CSSProperties = {
-    width: component.size?.width
-      ? `${component.size.width}px`
-      : component.styles?.width || "auto",
-    height: component.size?.height
-      ? `${component.size.height}px`
-      : component.styles?.height || "auto",
-    padding: component.styles?.padding,
-    margin: component.styles?.margin,
-    backgroundColor: component.styles?.backgroundColor,
-    color: component.styles?.color,
-    fontSize: component.styles?.fontSize,
-    fontWeight: component.styles?.fontWeight,
-    border: component.styles?.border,
-    borderRadius: component.styles?.borderRadius,
-    boxShadow: component.styles?.boxShadow,
-    display: component.styles?.display,
-    justifyContent: component.styles?.justifyContent,
-    alignItems: component.styles?.alignItems,
-    textAlign: component.styles?.textAlign as any,
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mousemove", handleResizeMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [
+    isDragging,
+    isResizing,
+    handleMouseMove,
+    handleResizeMove,
+    handleMouseUp,
+  ]);
+
+  const componentLibraryItem = getComponentById(component.type);
+  if (!componentLibraryItem) return null;
+
+  const ComponentElement = componentLibraryItem.previewComponent;
+  if (!ComponentElement) return null;
+
+  const styles = component.styles || {};
+  const position = component.position || { x: 0, y: 0 };
+  const size = component.size || { width: 100, height: 100 };
+
+  const style: React.CSSProperties = {
+    position: "absolute",
+    left: `${position.x}px`,
+    top: `${position.y}px`,
+    width: `${size.width}px`,
+    height: `${size.height}px`,
+    transform: `scale(${zoom})`,
+    transformOrigin: "top left",
+    cursor: isDragging ? "grabbing" : "grab",
+    // Preserve component's original border, but add selection outline if selected
+    border: styles.border || "1px solid transparent",
+    outline: isSelected ? "2px solid #3b82f6" : "none",
+    outlineOffset: isSelected ? "2px" : "0",
+    backgroundColor: styles.backgroundColor || "transparent",
+    color: styles.color || "inherit",
+    fontSize: styles.fontSize || "inherit",
+    fontWeight: styles.fontWeight || "inherit",
+    textAlign: (styles.textAlign as any) || "left",
+    borderRadius: styles.borderRadius || 0,
+    opacity: styles.opacity ?? 1,
+    zIndex: isSelected ? 1000 : 1,
+    // Apply additional styles from the component definition
+    display: styles.display || "block",
+    padding: styles.padding || "0",
+    alignItems: styles.alignItems || "initial",
+    justifyContent: styles.justifyContent || "initial",
+    gap: styles.gap || "initial",
+    gridTemplateColumns: styles.gridTemplateColumns || "initial",
+    minHeight: styles.minHeight || "auto",
   };
 
   return (
     <div
-      ref={(node) => {
-        if (componentRef.current !== node) {
-          (
-            componentRef as React.MutableRefObject<HTMLDivElement | null>
-          ).current = node;
-        }
-        drag(node);
-      }}
-      className={`absolute cursor-move transition-all duration-200 ${
-        isDragging ? "opacity-50" : ""
-      } ${
-        isSelected
-          ? "ring-2 ring-blue-500 ring-offset-2"
-          : isHovered
-          ? "ring-2 ring-blue-300 ring-offset-1"
-          : ""
-      }`}
-      style={{
-        left: component.position?.x || 0,
-        top: component.position?.y || 0,
-        transform: `scale(${zoom})`,
-        transformOrigin: "top left",
-        zIndex: isSelected ? 1000 : 1,
-      }}
-      onClick={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      data-component-id={component.id}
+      ref={componentRef}
+      style={style}
+      onMouseDown={handleMouseDown}
+      className="select-none"
     >
-      {/* Component Content */}
-      <div
-        className="component-content relative overflow-hidden"
-        style={combinedStyles}
-      >
-        <PreviewComponent {...component.props} />
+      <ComponentElement {...component.props} />
 
-        {/* Selection Overlay */}
-        {(isSelected || isHovered) && (
-          <div className="absolute inset-0 pointer-events-none">
-            {/* Component Label */}
-            <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-              {component.name || component.type}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      {(isSelected || isHovered) && (
-        <div className="absolute -top-8 -right-8 flex space-x-1 z-20">
-          <button
-            onClick={handleDuplicate}
-            className="p-1 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors"
-            title="Duplicate"
-          >
-            <Copy size={12} />
-          </button>
-          <button
-            onClick={handleDelete}
-            className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
-      )}
-
-      {/* Resize Handles */}
       {isSelected && (
         <>
-          {/* Corner handles */}
           <div
-            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-nw-resize z-30"
+            className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 cursor-nw-resize"
             onMouseDown={(e) => handleResizeStart(e, "top-left")}
           />
           <div
-            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-ne-resize z-30"
+            className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 cursor-ne-resize"
             onMouseDown={(e) => handleResizeStart(e, "top-right")}
           />
           <div
-            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-sw-resize z-30"
+            className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 cursor-sw-resize"
             onMouseDown={(e) => handleResizeStart(e, "bottom-left")}
           />
           <div
-            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-se-resize z-30"
+            className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 cursor-se-resize"
             onMouseDown={(e) => handleResizeStart(e, "bottom-right")}
           />
-
-          {/* Edge handles */}
           <div
-            className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-n-resize z-30"
+            className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 cursor-n-resize"
             onMouseDown={(e) => handleResizeStart(e, "top")}
           />
           <div
-            className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-s-resize z-30"
+            className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 cursor-s-resize"
             onMouseDown={(e) => handleResizeStart(e, "bottom")}
           />
           <div
-            className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-w-resize z-30"
+            className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 cursor-w-resize"
             onMouseDown={(e) => handleResizeStart(e, "left")}
           />
           <div
-            className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-blue-500 border border-white rounded-full cursor-e-resize z-30"
+            className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 cursor-e-resize"
             onMouseDown={(e) => handleResizeStart(e, "right")}
           />
         </>

@@ -7,29 +7,124 @@ export interface Component {
   category: string;
   props: Record<string, any>;
   children?: Component[];
+  parentId?: string;
   position?: { x: number; y: number };
   size?: { width: number; height: number };
   styles?: ComponentStyles;
 }
 
 export interface ComponentStyles {
-  margin?: string;
-  padding?: string;
-  backgroundColor?: string;
-  color?: string;
-  fontSize?: string;
-  fontWeight?: string;
-  border?: string;
-  borderRadius?: string;
-  boxShadow?: string;
+  // Layout & Positioning
+  position?: "static" | "relative" | "absolute" | "fixed" | "sticky";
+  top?: string;
+  right?: string;
+  bottom?: string;
+  left?: string;
+  zIndex?: number;
+
+  // Dimensions
   width?: string;
   height?: string;
-  display?: string;
-  flexDirection?: string;
-  justifyContent?: string;
-  alignItems?: string;
-  gap?: string;
+  minWidth?: string;
+  maxWidth?: string;
+  minHeight?: string;
+  maxHeight?: string;
+
+  // Spacing
+  margin?: string;
+  marginTop?: string;
+  marginRight?: string;
+  marginBottom?: string;
+  marginLeft?: string;
+  padding?: string;
+  paddingTop?: string;
+  paddingRight?: string;
+  paddingBottom?: string;
+  paddingLeft?: string;
+
+  // Colors & Background
+  backgroundColor?: string;
+  color?: string;
+  opacity?: number;
+
+  // Typography
+  fontSize?: string;
+  fontWeight?: string;
+  fontFamily?: string;
+  lineHeight?: string;
+  letterSpacing?: string;
   textAlign?: string;
+  textDecoration?: string;
+  textTransform?: string;
+
+  // Borders
+  border?: string;
+  borderTop?: string;
+  borderRight?: string;
+  borderBottom?: string;
+  borderLeft?: string;
+  borderRadius?: string;
+  borderWidth?: string;
+  borderStyle?: string;
+  borderColor?: string;
+
+  // Shadows & Effects
+  boxShadow?: string;
+  textShadow?: string;
+  filter?: string;
+  transform?: string;
+  transition?: string;
+
+  // Display & Layout
+  display?: string;
+  overflow?: string;
+  overflowX?: string;
+  overflowY?: string;
+  visibility?: string;
+
+  // Flexbox
+  flexDirection?: "row" | "row-reverse" | "column" | "column-reverse";
+  justifyContent?:
+    | "flex-start"
+    | "flex-end"
+    | "center"
+    | "space-between"
+    | "space-around"
+    | "space-evenly";
+  alignItems?: "stretch" | "flex-start" | "flex-end" | "center" | "baseline";
+  alignContent?:
+    | "flex-start"
+    | "flex-end"
+    | "center"
+    | "space-between"
+    | "space-around"
+    | "stretch";
+  flex?: string;
+  flexGrow?: number;
+  flexShrink?: number;
+  flexBasis?: string;
+  flexWrap?: "nowrap" | "wrap" | "wrap-reverse";
+  gap?: string;
+  rowGap?: string;
+  columnGap?: string;
+
+  // Grid
+  gridTemplateColumns?: string;
+  gridTemplateRows?: string;
+  gridTemplateAreas?: string;
+  gridColumn?: string;
+  gridRow?: string;
+  gridArea?: string;
+  gridGap?: string;
+  gridRowGap?: string;
+  gridColumnGap?: string;
+  gridAutoFlow?: "row" | "column" | "row dense" | "column dense";
+  gridAutoRows?: string;
+  gridAutoColumns?: string;
+  placeItems?: string;
+  placeContent?: string;
+  placeSelf?: string;
+
   [key: string]: any;
 }
 

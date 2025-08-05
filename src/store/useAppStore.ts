@@ -22,6 +22,7 @@ interface AppStore extends CanvasState {
   updateComponent: (id: string, updates: Partial<Component>) => void;
   selectComponent: (id: string | null) => void;
   moveComponent: (id: string, position: { x: number; y: number }) => void;
+  moveComponentInLayer: (id: string, direction: "up" | "down") => void;
   resizeComponent: (
     id: string,
     size: { width: number; height: number }
@@ -205,6 +206,32 @@ export const useAppStore = create<AppStore>()(
 
     moveComponent: (id, position) => {
       get().updateComponent(id, { position });
+    },
+
+    moveComponentInLayer: (id, direction) => {
+      set((state) => {
+        const components = [...state.components];
+        const currentIndex = components.findIndex((c) => c.id === id);
+
+        if (currentIndex === -1) return state;
+
+        let newIndex: number;
+        if (direction === "up") {
+          // Move up = towards front (lower index in reverse-rendered array)
+          newIndex = Math.max(0, currentIndex - 1);
+        } else {
+          // Move down = towards back (higher index in reverse-rendered array)
+          newIndex = Math.min(components.length - 1, currentIndex + 1);
+        }
+
+        if (newIndex === currentIndex) return state;
+
+        // Swap components to change their order
+        const [movedComponent] = components.splice(currentIndex, 1);
+        components.splice(newIndex, 0, movedComponent);
+
+        return { components };
+      });
     },
 
     resizeComponent: (id, size) => {
