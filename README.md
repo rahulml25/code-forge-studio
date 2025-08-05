@@ -1,6 +1,6 @@
 # CodeForge Studio
 
-🎉 **COMPLETED AND FULLY FUNCTIONAL!** 🎉
+🎉 **COMPLETED AND FULLY FUNCTIONAL!** 
 
 A full-stack visual UI designer that allows users to design interfaces via drag-and-drop and generates frontend code in real-time.
 
