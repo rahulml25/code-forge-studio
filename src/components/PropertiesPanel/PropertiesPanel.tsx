@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Settings, Palette, Layout, Type } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { useAppStore } from "../../store/useAppStore";
-import { Component } from "../../types";
 
 const StyleGroup: React.FC<{
   title: string;

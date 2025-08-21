@@ -3,6 +3,7 @@ import { useDrop } from "react-dnd";
 import { useAppStore } from "../../store/useAppStore";
 import { CanvasComponent } from "./CanvasComponent";
 import { DropResult } from "../../types";
+import { clientToCanvas } from "../../utils/coords";
 
 export const Canvas: React.FC = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -24,16 +25,45 @@ export const Canvas: React.FC = () => {
       if (!clientOffset) return;
 
       const canvasRect = canvasRef.current.getBoundingClientRect();
-      const position = {
-        x: (clientOffset.x - canvasRect.left) / zoom,
-        y: (clientOffset.y - canvasRect.top) / zoom,
-      };
+      // Use coordinate utility for consistent positioning
+      const position = clientToCanvas(
+        clientOffset.x,
+        clientOffset.y,
+        canvasRect,
+        zoom
+      );
+
+      // Check if dropped on top of another component
+      const targetElement = document.elementFromPoint(
+        clientOffset.x,
+        clientOffset.y
+      );
+      const componentElement = targetElement?.closest("[data-component-id]");
+      const targetComponentId =
+        componentElement?.getAttribute("data-component-id");
+
+      // Find the target component to see if it can be a parent
+      let parentId: string | undefined;
+      if (targetComponentId) {
+        const targetComponent = components.find(
+          (c) => c.id === targetComponentId
+        );
+        // Only allow components that can have children as parents (div, containers, etc.)
+        if (
+          targetComponent &&
+          ["div", "container", "flex-container", "grid-container"].includes(
+            targetComponent.type
+          )
+        ) {
+          parentId = targetComponentId;
+        }
+      }
 
       // Handle different drag item types
       if (item.type === "COMPONENT_LIBRARY_ITEM" && item.component) {
-        addComponent(item.component, position);
+        addComponent(item.component, position, parentId);
       } else if (item.type === "component" && item.item) {
-        addComponent(item.item, position);
+        addComponent(item.item, position, parentId);
       }
 
       const result: DropResult = {
@@ -113,7 +143,7 @@ export const Canvas: React.FC = () => {
               ...getViewportStyles(),
               minHeight: "600px",
               transform: `scale(${zoom})`,
-              transformOrigin: "top center",
+              transformOrigin: "top left",
             }}
           >
             {/* Canvas Grid Background */}

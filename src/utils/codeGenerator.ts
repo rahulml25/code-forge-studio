@@ -1,5 +1,82 @@
 import { Component, CodeGenerationOptions } from "../types";
 
+// Build a component tree from flat array using parentId relationships
+function buildComponentTree(components: Component[]): Component[] {
+  const componentMap = new Map<string, Component>();
+  const rootComponents: Component[] = [];
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+
+  // Create a map for quick lookup
+  components.forEach((comp) => {
+    componentMap.set(comp.id, { ...comp, children: [] });
+  });
+
+  // Detect cycles using DFS
+  function hasCycle(id: string): boolean {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+
+    visiting.add(id);
+    const component = componentMap.get(id);
+    if (component?.parentId && componentMap.has(component.parentId)) {
+      if (hasCycle(component.parentId)) return true;
+    }
+    visiting.delete(id);
+    visited.add(id);
+    return false;
+  }
+
+  // Build parent-child relationships with cycle detection
+  components.forEach((comp) => {
+    const component = componentMap.get(comp.id)!;
+
+    if (comp.parentId && componentMap.has(comp.parentId)) {
+      // Check for cycles before adding relationship
+      if (hasCycle(comp.id)) {
+        console.warn(
+          `Cycle detected involving component ${comp.id}, attaching to root`
+        );
+        rootComponents.push(component);
+      } else {
+        const parent = componentMap.get(comp.parentId)!;
+        parent.children = parent.children || [];
+        parent.children.push(component);
+      }
+    } else {
+      // Orphan or root component
+      if (comp.parentId && !componentMap.has(comp.parentId)) {
+        console.warn(
+          `Parent ${comp.parentId} not found for component ${comp.id}, attaching to root`
+        );
+      }
+      rootComponents.push(component);
+    }
+  });
+
+  return rootComponents;
+}
+
+// Check if component uses layout semantics (flex/grid)
+function isLayoutContainer(component: Component): boolean {
+  const styles = component.styles || {};
+  return (
+    styles.display === "flex" ||
+    styles.display === "inline-flex" ||
+    styles.display === "grid" ||
+    styles.display === "inline-grid" ||
+    component.type === "flex-container" ||
+    component.type === "grid-container" ||
+    component.type === "container"
+  );
+}
+
+// Check if component should use absolute positioning
+function isAbsolutePositioned(component: Component): boolean {
+  const styles = component.styles || {};
+  return styles.position === "absolute" || styles.position === "fixed";
+}
+
 export function generateCode(
   components: Component[],
   options: CodeGenerationOptions
@@ -8,9 +85,9 @@ export function generateCode(
     case "react":
       return generateReactCode(components, options);
     case "html":
-      return generateHTMLCode(components, options);
+      return generateHTMLCode(components);
     case "tailwind":
-      return generateTailwindCode(components, options);
+      return generateTailwindCode(components);
     default:
       return generateReactCode(components, options);
   }
@@ -18,7 +95,7 @@ export function generateCode(
 
 function generateReactCode(
   components: Component[],
-  options: CodeGenerationOptions
+  _options: CodeGenerationOptions
 ): string {
   if (components.length === 0) {
     return `import React from 'react';
@@ -34,10 +111,33 @@ const MyComponent = () => {
 export default MyComponent;`;
   }
 
+  // Build component tree from flat array
+  const componentTree = buildComponentTree(components);
+
   const imports = new Set<string>();
-  const componentCode = components
-    .map((comp) => generateReactComponent(comp, 0, imports))
-    .join("\n\n");
+
+  // If no root components, render empty div
+  if (componentTree.length === 0) {
+    return `import React from 'react';
+
+const MyComponent = () => {
+  return (
+    <div>
+      {/* No components to render */}
+    </div>
+  );
+};
+
+export default MyComponent;`;
+  }
+
+  // If single root, render it directly; if multiple roots, wrap in fragment
+  const componentCode =
+    componentTree.length === 1
+      ? generateReactComponent(componentTree[0], 0, imports)
+      : componentTree
+          .map((comp) => generateReactComponent(comp, 0, imports))
+          .join("\n");
 
   const importStatements = Array.from(imports)
     .map((imp) => `import ${imp};`)
@@ -47,12 +147,19 @@ export default MyComponent;`;
 ${importStatements ? importStatements + "\n" : ""}
 const MyComponent = () => {
   return (
-    <div>
-${componentCode
-  .split("\n")
-  .map((line) => "      " + line)
-  .join("\n")}
-    </div>
+${
+  componentTree.length === 1
+    ? componentCode
+        .split("\n")
+        .map((line) => "    " + line)
+        .join("\n")
+    : "    <>\n" +
+      componentCode
+        .split("\n")
+        .map((line) => "      " + line)
+        .join("\n") +
+      "\n    </>"
+}
   );
 };
 
@@ -67,7 +174,7 @@ function generateReactComponent(
   const indent = "  ".repeat(depth);
   const tag = getReactTag(component.type);
   const props = generateReactProps(component);
-  const styles = generateInlineStyles(component.styles);
+  const styles = generateComponentStyles(component);
 
   let opening = `${indent}<${tag}`;
   if (props) opening += ` ${props}`;
@@ -76,7 +183,9 @@ function generateReactComponent(
   if (component.children && component.children.length > 0) {
     opening += ">\n";
     const childrenCode = component.children
-      .map((child) => generateReactComponent(child, depth + 1, imports))
+      .map((child: Component) =>
+        generateReactComponent(child, depth + 1, imports)
+      )
       .join("\n");
     return `${opening}${childrenCode}\n${indent}</${tag}>`;
   } else if (component.props.children) {
@@ -86,10 +195,7 @@ function generateReactComponent(
   }
 }
 
-function generateHTMLCode(
-  components: Component[],
-  options: CodeGenerationOptions
-): string {
+function generateHTMLCode(components: Component[]): string {
   if (components.length === 0) {
     return `<!DOCTYPE html>
 <html lang="en">
@@ -107,7 +213,10 @@ function generateHTMLCode(
 </html>`;
   }
 
-  const componentCode = components
+  // Build component tree from flat array for HTML generation too
+  const componentTree = buildComponentTree(components);
+
+  const componentCode = componentTree
     .map((comp) => generateHTMLComponent(comp, 0))
     .join("\n");
   const styles = generateCSSFromComponents(components);
@@ -152,10 +261,7 @@ function generateHTMLComponent(component: Component, depth = 0): string {
   }
 }
 
-function generateTailwindCode(
-  components: Component[],
-  options: CodeGenerationOptions
-): string {
+function generateTailwindCode(components: Component[]): string {
   const componentCode = components
     .map((comp) => generateTailwindComponent(comp, 0))
     .join("\n");
@@ -225,6 +331,35 @@ function generateReactProps(component: Component): string {
     })
     .join(" ");
   return props;
+}
+
+// Generate styles based on component type and layout semantics
+function generateComponentStyles(component: Component): string {
+  if (!component.styles) return "";
+
+  const styles = { ...component.styles };
+
+  // For layout containers, preserve layout properties
+  if (isLayoutContainer(component)) {
+    // Keep layout-related styles and avoid absolute positioning
+    if (!isAbsolutePositioned(component)) {
+      delete styles.position;
+      delete styles.left;
+      delete styles.top;
+    }
+  } else if (!isAbsolutePositioned(component)) {
+    // For non-layout, non-absolute components, use their position from the canvas
+    const position = component.position || { x: 0, y: 0 };
+    const size = component.size || { width: "auto", height: "auto" };
+
+    styles.position = "absolute";
+    styles.left = `${position.x}px`;
+    styles.top = `${position.y}px`;
+    if (size.width !== "auto") styles.width = `${size.width}px`;
+    if (size.height !== "auto") styles.height = `${size.height}px`;
+  }
+
+  return generateInlineStyles(styles);
 }
 
 function generateHTMLAttributes(component: Component): string {

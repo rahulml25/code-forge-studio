@@ -2,14 +2,13 @@ import React, { useState } from "react";
 import { Search, ChevronDown, ChevronRight } from "lucide-react";
 import { useDrag } from "react-dnd";
 import {
-  componentLibrary,
   componentCategories,
   getComponentsByCategory,
-} from "../ComponentLibrary/index";
-import { useAppStore } from "../../store/useAppStore";
+} from "../ComponentLibrary/index.tsx";
+import { ComponentLibraryItem } from "../../types";
 
 interface DraggableComponentProps {
-  component: any;
+  component: ComponentLibraryItem;
 }
 
 const DraggableComponent: React.FC<DraggableComponentProps> = ({
@@ -47,8 +46,14 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({
   );
 };
 
+interface ComponentCategory {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 interface CategorySectionProps {
-  category: any;
+  category: ComponentCategory;
   isExpanded: boolean;
   onToggle: () => void;
   searchTerm: string;
@@ -121,7 +126,7 @@ export const Sidebar: React.FC = () => {
   const handleExpandAll = () => {
     const allExpanded = Object.values(expandedCategories).every(Boolean);
     const newState = componentCategories.reduce(
-      (acc, category) => ({
+      (acc: Record<string, boolean>, category: ComponentCategory) => ({
         ...acc,
         [category.id]: !allExpanded,
       }),
@@ -164,7 +169,7 @@ export const Sidebar: React.FC = () => {
 
       {/* Component Categories */}
       <div className="flex-1 overflow-y-auto">
-        {componentCategories.map((category) => (
+        {componentCategories.map((category: ComponentCategory) => (
           <CategorySection
             key={category.id}
             category={category}

@@ -1,7 +1,9 @@
 import React, { useCallback, useState, useRef, useEffect } from "react";
+import { useDrop } from "react-dnd";
 import { useAppStore } from "../../store/useAppStore";
 import { Component } from "../../types";
-import { getComponentById } from "../ComponentLibrary";
+import { getComponentById } from "../ComponentLibrary/index.tsx";
+import { clientToCanvas, clampSize } from "../../utils/coords";
 
 interface CanvasComponentProps {
   component: Component;
@@ -21,8 +23,28 @@ export const CanvasComponent: React.FC<CanvasComponentProps> = ({
   const [isResizing, setIsResizing] = useState(false);
   const [resizeDirection, setResizeDirection] = useState<string>("");
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [initialPointerOffset, setInitialPointerOffset] = useState({
+    x: 0,
+    y: 0,
+  });
   const componentRef = useRef<HTMLDivElement>(null);
+
+  // Add drop zone for components that can have children
+  const canHaveChildren = [
+    "div",
+    "container",
+    "flex-container",
+    "grid-container",
+  ].includes(component.type);
+
+  const [{ isOver, canDrop }, drop] = useDrop({
+    accept: ["component", "COMPONENT_LIBRARY_ITEM"],
+    canDrop: () => canHaveChildren,
+    collect: (monitor) => ({
+      isOver: monitor.isOver({ shallow: true }),
+      canDrop: monitor.canDrop(),
+    }),
+  });
 
   // Handle mouse down for dragging
   const handleMouseDown = useCallback(
@@ -41,13 +63,23 @@ export const CanvasComponent: React.FC<CanvasComponentProps> = ({
       const canvasRect = canvasContainer.getBoundingClientRect();
       const currentPosition = component.position || { x: 0, y: 0 };
 
-      // Calculate the offset from the mouse to the component's top-left corner
-      const offsetX = e.clientX - canvasRect.left - currentPosition.x * zoom;
-      const offsetY = e.clientY - canvasRect.top - currentPosition.y * zoom;
+      // Convert mouse position to logical canvas coordinates
+      const mouseLogical = clientToCanvas(
+        e.clientX,
+        e.clientY,
+        canvasRect,
+        zoom
+      );
+
+      // Calculate offset from mouse to component's top-left corner
+      const pointerOffset = {
+        x: mouseLogical.x - currentPosition.x,
+        y: mouseLogical.y - currentPosition.y,
+      };
 
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
-      setDragOffset({ x: offsetX, y: offsetY });
+      setInitialPointerOffset(pointerOffset);
     },
     [component.id, component.position, onSelect, zoom]
   );
@@ -67,13 +99,30 @@ export const CanvasComponent: React.FC<CanvasComponentProps> = ({
 
       const canvasRect = canvasContainer.getBoundingClientRect();
 
-      // Calculate new position accounting for zoom and offset
-      const newX = (e.clientX - canvasRect.left - dragOffset.x) / zoom;
-      const newY = (e.clientY - canvasRect.top - dragOffset.y) / zoom;
+      // Convert mouse position to logical canvas coordinates
+      const mouseLogical = clientToCanvas(
+        e.clientX,
+        e.clientY,
+        canvasRect,
+        zoom
+      );
 
-      moveComponent(component.id, { x: newX, y: newY });
+      // Calculate new position by subtracting the initial pointer offset
+      const newPosition = {
+        x: mouseLogical.x - initialPointerOffset.x,
+        y: mouseLogical.y - initialPointerOffset.y,
+      };
+
+      moveComponent(component.id, newPosition);
     },
-    [component.id, moveComponent, zoom, isDragging, isResizing, dragOffset]
+    [
+      component.id,
+      moveComponent,
+      zoom,
+      isDragging,
+      isResizing,
+      initialPointerOffset,
+    ]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -102,6 +151,7 @@ export const CanvasComponent: React.FC<CanvasComponentProps> = ({
 
       e.preventDefault();
 
+      // Calculate delta in logical coordinates
       const deltaX = (e.clientX - dragStart.x) / zoom;
       const deltaY = (e.clientY - dragStart.y) / zoom;
 
@@ -113,24 +163,35 @@ export const CanvasComponent: React.FC<CanvasComponentProps> = ({
       let newX = currentPosition.x;
       let newY = currentPosition.y;
 
+      // Handle width changes
       if (resizeDirection.includes("right")) {
-        newWidth = Math.max(20, currentSize.width + deltaX);
+        newWidth = currentSize.width + deltaX;
       }
       if (resizeDirection.includes("left")) {
-        newWidth = Math.max(20, currentSize.width - deltaX);
+        newWidth = currentSize.width - deltaX;
         newX = currentPosition.x + deltaX;
       }
+
+      // Handle height changes
       if (resizeDirection.includes("bottom")) {
-        newHeight = Math.max(20, currentSize.height + deltaY);
+        newHeight = currentSize.height + deltaY;
       }
       if (resizeDirection.includes("top")) {
-        newHeight = Math.max(20, currentSize.height - deltaY);
+        newHeight = currentSize.height - deltaY;
         newY = currentPosition.y + deltaY;
       }
 
-      moveComponent(component.id, { x: newX, y: newY });
-      resizeComponent(component.id, { width: newWidth, height: newHeight });
+      // Apply size constraints using utility
+      const clampedSize = clampSize(
+        { width: newWidth, height: newHeight },
+        { width: 20, height: 20 }
+      );
 
+      // Update component
+      moveComponent(component.id, { x: newX, y: newY });
+      resizeComponent(component.id, clampedSize);
+
+      // Update drag start for next move
       setDragStart({ x: e.clientX, y: e.clientY });
     },
     [
@@ -187,8 +248,7 @@ export const CanvasComponent: React.FC<CanvasComponentProps> = ({
     top: `${position.y}px`,
     width: `${size.width}px`,
     height: `${size.height}px`,
-    transform: `scale(${zoom})`,
-    transformOrigin: "top left",
+    // Removed transform scale - zoom is handled by canvas container
     cursor: isDragging ? "grabbing" : "grab",
     // Preserve component's original border, but add selection outline if selected
     border: styles.border || "1px solid transparent",
@@ -214,10 +274,20 @@ export const CanvasComponent: React.FC<CanvasComponentProps> = ({
 
   return (
     <div
-      ref={componentRef}
+      ref={(node) => {
+        (
+          componentRef as React.MutableRefObject<HTMLDivElement | null>
+        ).current = node;
+        if (canHaveChildren) {
+          drop(node);
+        }
+      }}
+      data-component-id={component.id}
       style={style}
       onMouseDown={handleMouseDown}
-      className="select-none"
+      className={`select-none ${
+        isOver && canDrop ? "ring-2 ring-green-400 ring-opacity-50" : ""
+      }`}
     >
       <ComponentElement {...component.props} />
 

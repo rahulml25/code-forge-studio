@@ -9,6 +9,7 @@ import {
   CollaborationUser,
   ProjectSettings,
 } from "../types";
+import { generateCode as centralizedGenerateCode } from "../utils/codeGenerator";
 
 interface AppStore extends CanvasState {
   // Canvas actions
@@ -26,6 +27,15 @@ interface AppStore extends CanvasState {
   resizeComponent: (
     id: string,
     size: { width: number; height: number }
+  ) => void;
+
+  // Parent-child relationship management
+  groupComponents: (componentIds: string[], groupName?: string) => string;
+  ungroupComponent: (groupId: string) => void;
+  setParentChild: (childId: string, parentId: string | null) => void;
+  moveComponentToParent: (
+    componentId: string,
+    newParentId: string | null
   ) => void;
 
   // Canvas controls
@@ -252,27 +262,7 @@ export const useAppStore = create<AppStore>()(
 
     generateCode: () => {
       const { components, codeOptions } = get();
-      // Simple fallback code generation
-      if (components.length === 0) {
-        return codeOptions.framework === "react"
-          ? `import React from 'react';\n\nconst MyComponent = () => {\n  return <div>No components yet</div>;\n};\n\nexport default MyComponent;`
-          : "<div>No components yet</div>";
-      }
-
-      const componentList = components
-        .map(
-          (c) =>
-            `<div style="position: absolute; left: ${
-              c.position?.x || 0
-            }px; top: ${c.position?.y || 0}px;">${
-              c.props?.children || c.name
-            }</div>`
-        )
-        .join("\n");
-
-      return codeOptions.framework === "react"
-        ? `import React from 'react';\n\nconst MyComponent = () => {\n  return (\n    <div>\n      ${componentList}\n    </div>\n  );\n};\n\nexport default MyComponent;`
-        : `<div>\n${componentList}\n</div>`;
+      return centralizedGenerateCode(components, codeOptions);
     },
 
     // Collaboration
@@ -370,6 +360,82 @@ export const useAppStore = create<AppStore>()(
       } finally {
         set({ isGeneratingAI: false });
       }
+    },
+
+    // Parent-Child Hierarchy Management
+    setParentChild: (childId: string, parentId: string | null) => {
+      set((state) => ({
+        components: state.components.map((component) =>
+          component.id === childId
+            ? { ...component, parentId: parentId || undefined }
+            : component
+        ),
+      }));
+    },
+
+    moveComponentToParent: (
+      componentId: string,
+      newParentId: string | null
+    ) => {
+      const { setParentChild } = get();
+      setParentChild(componentId, newParentId);
+    },
+
+    groupComponents: (componentIds: string[], groupName?: string) => {
+      const { addExistingComponent, setParentChild } = get();
+
+      // Create a group container component
+      const groupComponent: Component = {
+        id: `group-${Date.now()}`,
+        type: "div",
+        name: groupName || "Group",
+        category: "layout",
+        props: {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            padding: "8px",
+            border: "1px dashed #ccc",
+            borderRadius: "4px",
+          },
+        },
+        position: { x: 0, y: 0 },
+        size: { width: 200, height: 100 },
+      };
+
+      // Add the group component
+      addExistingComponent(groupComponent);
+
+      // Set all selected components as children of the group
+      componentIds.forEach((componentId) => {
+        setParentChild(componentId, groupComponent.id);
+      });
+
+      return groupComponent.id;
+    },
+
+    ungroupComponent: (groupId: string) => {
+      const { removeComponent, setParentChild } = get();
+      const state = get();
+
+      // Find all children of this group
+      const children = state.components.filter(
+        (component) => component.parentId === groupId
+      );
+
+      // Move all children to the group's parent (or root level)
+      const groupComponent = state.components.find(
+        (component) => component.id === groupId
+      );
+      const newParentId = groupComponent?.parentId || null;
+
+      children.forEach((child) => {
+        setParentChild(child.id, newParentId);
+      });
+
+      // Remove the group component
+      removeComponent(groupId);
     },
 
     // Demo Content
