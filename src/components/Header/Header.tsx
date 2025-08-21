@@ -62,9 +62,7 @@ export const Header: React.FC = () => {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">CF</span>
             </div>
-            <span className="font-semibold text-gray-900">
-              CodeForge Studio
-            </span>
+            <span className="font-semibold text-gray-900">UI Forge Studio</span>
           </div>
 
           <div className="flex items-center space-x-2">

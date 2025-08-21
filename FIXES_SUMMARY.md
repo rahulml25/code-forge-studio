@@ -1,4 +1,4 @@
-# CodeForge Studio - Critical Fixes & Enhancements
+# UI Forge Studio - Critical Fixes & Enhancements
 
 ## 🛠️ Issues Fixed
 
@@ -167,7 +167,7 @@ PropertiesPanel/
 
 ## 🎉 Ready for Use
 
-CodeForge Studio now provides:
+UI Forge Studio now provides:
 
 - ✅ Professional-grade drag and drop
 - ✅ Complete component hierarchy visualization

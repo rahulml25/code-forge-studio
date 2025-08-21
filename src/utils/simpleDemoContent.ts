@@ -29,7 +29,7 @@ export const createSimpleDemoContent = (): ComponentLibraryItem[] => {
       category: "text",
       icon: "type",
       defaultProps: {
-        children: "Welcome to CodeForge Studio!",
+        children: "Welcome to UI Forge Studio!",
       },
       defaultStyles: {
         color: "#374151",

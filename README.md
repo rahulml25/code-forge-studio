@@ -1,10 +1,10 @@
-# CodeForge Studio
+# UI Forge Studio
 
-🎉 **COMPLETED AND FULLY FUNCTIONAL!** 
+🎉 **COMPLETED AND FULLY FUNCTIONAL!**
 
 A full-stack visual UI designer that allows users to design interfaces via drag-and-drop and generates frontend code in real-time.
 
-![CodeForge Studio](https://via.placeholder.com/800x400/3b82f6/ffffff?text=CodeForge+Studio)
+![UI Forge Studio](https://via.placeholder.com/800x400/3b82f6/ffffff?text=UI+Forge+Studio)
 
 ## ✅ Status: PRODUCTION READY
 
@@ -55,7 +55,7 @@ A full-stack visual UI designer that allows users to design interfaces via drag-
 
 ```bash
 git clone <repository-url>
-cd code-forge-studio
+cd ui-forge-studio
 ```
 
 2. Install dependencies:
@@ -195,4 +195,4 @@ For support, email [your-email] or open an issue on GitHub.
 
 ---
 
-**CodeForge Studio** - Empowering designers and developers to create beautiful UIs visually! 🎨✨
+**UI Forge Studio** - Empowering designers and developers to create beautiful UIs visually! 🎨✨

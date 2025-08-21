@@ -96,7 +96,7 @@ function App() {
       {/* Status Bar */}
       <div className="bg-gray-100 border-t border-gray-200 px-4 py-2 text-sm text-gray-600 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <span>CodeForge Studio</span>
+          <span>UI Forge Studio</span>
           {selectedComponentId && (
             <span className="text-blue-600">
               Selected: {selectedComponentId}

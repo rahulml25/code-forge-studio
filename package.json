@@ -1,5 +1,5 @@
 {
-  "name": "codeforge-studio",
+  "name": "ui-forge-studio",
   "version": "1.0.0",
   "description": "Visual UI designer with real-time code generation",
   "private": true,

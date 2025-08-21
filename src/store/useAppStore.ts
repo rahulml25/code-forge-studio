@@ -450,7 +450,7 @@ export const useAppStore = create<AppStore>()(
         category: "text",
         icon: "type",
         defaultProps: {
-          children: "Welcome to CodeForge Studio! 🎨",
+          children: "Welcome to UI Forge Studio! 🎨",
         },
         defaultStyles: {
           color: "#1f2937",

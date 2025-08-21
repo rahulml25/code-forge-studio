@@ -34,7 +34,7 @@ export const createDemoLayout = () => {
     category: "text",
     icon: "heading",
     defaultProps: {
-      children: "Welcome to CodeForge Studio",
+      children: "Welcome to UI Forge Studio",
       level: 1,
     },
     defaultStyles: {
