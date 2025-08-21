@@ -17,4 +17,7 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: true,
   },
+  preview: {
+    allowedHosts: ["ui-forge-studio.onrender.com"],
+  },
 });
